@@ -334,3 +334,7 @@ function! cntr#forward()
     norm! j0
   endwhile
 endfunction
+
+function! cntr#export(output)
+  echo system("cd ". b:cntr_directory . " && zip -r " . fnamemodify(a:output, ":p") . ".zip .")
+endfunction
