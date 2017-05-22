@@ -48,7 +48,11 @@ function! s:define_variable(line)
   try
     execute "let $".key."=".value
   catch
-    throw "Failed to set environment variable: " . a:line
+    if value[0] != "'"
+      throw "Unquoted environment variable " . a:line
+    else
+      throw "Failed to set environment variable: " . a:line
+    endif
   endtry
 endfunction
 
@@ -60,7 +64,7 @@ function! s:handle_initializer(block)
       call s:define_variable(line)
     else
       call system(line)
-    end
+    endif
   endfor
 endfunction
 
@@ -206,7 +210,6 @@ function! s:run_dependencies(definition)
       return
     end
     call s:run_definition(dependency)
-    call s:add_to_cache(dependency_definition)
   endfor
 endfunction
 
@@ -227,6 +230,7 @@ function! s:run_definition(name)
   let output_file = s:file_path(definition.file)
   call s:make_output_dir(output_file)
   call system("cat > " . output_file, s:run_pipe(definition.lines))
+  call s:add_to_cache(definition)
   return output_file
 endfunction
 
