@@ -6,5 +6,6 @@ nnoremap <buffer> <silent> K :echo system(expand("<cword>") . " -h")<CR>
 nnoremap <buffer> <silent> [[ :call cntr#back()<CR>
 nnoremap <buffer> <silent> ]] :call cntr#forward()<CR>
 
-" TODO create a CntrExport command
-command -nargs=1 CntrExport call cntr#export(<f-args>)
+command! -nargs=1 CntrExport call cntr#export(<f-args>)
+
+setlocal commentstring=#\ %s
