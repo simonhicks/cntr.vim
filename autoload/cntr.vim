@@ -1,3 +1,4 @@
+
 if exists("g:did_cntr_autoload")
   finish
 endif
@@ -7,11 +8,9 @@ if !exists("*sha256")
   echoerr "WARNING: +cryptv feature not found. cntr.vim will not work without this feature"
 endif
 
-if !exists("g:cntr_home")
-  " TODO bundle the scripts and make this a more sensible default based on vim plugin location
-  let g:cntr_home = $HOME."/src/csv-utils/bin"
-  let g:cntr_buffer_name = "*** CNTR RESULTS ***"
-endif
+let g:cntr_home = expand("<sfile>:p:h:h")
+let g:cntr_bin = g:cntr_home . "/bin"
+let g:cntr_buffer_name = "*** CNTR RESULTS ***"
 
 " trims leading and trailing whitespace from a str
 " @param str  the string to trim
@@ -167,7 +166,7 @@ endfunction
 function! s:do_initialize_buffer()
   let b:cntr_directory = tempname() . "/" . substitute(expand("%:p")[1 : ], "/", ".", "g") . '/'
   call mkdir(b:cntr_directory, "p")
-  let $PATH=g:cntr_home.":".$PATH
+  let $PATH=g:cntr_bin.":".$PATH
   let b:cntr_cache = {}
   let b:cntr_done_init_buffer = 1
 endfunction

@@ -1,0 +1,75 @@
+#!/bin/bash
+
+show_help() {
+  echo ""
+  echo "USAGE: $(basename $0) [-h] [-s sep] -x x-axis-col -y y-axis-col [-t date-fmt] [-d dimensions]"
+  echo ""
+  echo "  x x-axis-col   : the column to use for the x axis values"
+  echo "  y y-axis-col   : the column to use for the y axis values"
+  echo "  t date-fmt     : the date format string for the x axis, using gnuplot syntax (defaults to"
+  echo "                   treating the x axis as a numeric)"
+  echo "  d dimensions   : the dimensions of the output as WxH (default 79x24)"
+  echo "  h              : print this help text"
+  echo ""
+}
+
+SEPARATOR=${CSV_UTILS_SEPARATOR:-,}
+TIME_FORMAT=""
+DIMENSIONS='79x24'
+
+while getopts "hs:x:y:t:d:" opt
+do
+  case "$opt" in
+    h)
+      show_help
+      exit 0
+      ;;
+    s) SEPARATOR="$OPTARG"
+      ;;
+    x) X_COLUMN="$OPTARG"
+      ;;
+    y) Y_COLUMNS="$OPTARG"
+      ;;
+    t) TIME_FORMAT="$OPTARG"
+      ;;
+    d) DIMENSIONS="$OPTARG"
+      ;;
+  esac
+done
+shift $((OPTIND-1))
+
+if [ "$X_COLUMN" == "" ]
+then
+  >&2 echo "ERROR: Missing mandatory argument -x"
+  >&2 show_help
+  exit 1
+fi
+
+if [ "$Y_COLUMNS" == "" ]
+then
+  >&2 echo "ERROR: Missing mandatory argument -y"
+  >&2 show_help
+  exit 1
+fi
+
+WIDTH=${DIMENSIONS%%x*}
+HEIGHT=${DIMENSIONS##*x}
+NUM_COLUMNS="$(echo "$X_COLUMNS,$Y_COLUMNS" | awk -F , '{print NF}')"
+
+DATA_FILE=`mktemp`
+SCRIPT_FILE=`mktemp`
+
+columns $X_COLUMN,$Y_COLUMNS | tr ' ' _ | table > $DATA_FILE
+
+cat > $SCRIPT_FILE <<EOF
+set terminal dumb 200 25
+$([ "$TIME_FORMAT" != "" ] && echo "set xdata time")
+$([ "$TIME_FORMAT" != "" ] && echo "set timefmt '$TIME_FORMAT'")
+set style data lines
+set key below
+plot for [i=2:$NUM_COLUMNS] '$DATA_FILE' using 1:i title columnheader(i)
+EOF
+
+gnuplot $SCRIPT_FILE
+rm $SCRIPT_FILE
+rm $DATA_FILE
