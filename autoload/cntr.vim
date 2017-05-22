@@ -3,9 +3,12 @@ if exists("g:did_cntr_autoload")
 endif
 let g:did_cntr_autoload = 1
 
+if !exists("*sha256")
+  echoerr "WARNING: +cryptv feature not found. cntr.vim will not work without this feature"
+endif
+
 if !exists("g:cntr_home")
   " TODO bundle the scripts and make this a more sensible default based on vim plugin location
-  " TODO check for "sha256()" and "show#show()" functions (as dependencies)
   let g:cntr_home = $HOME."/src/csv-utils/bin"
   let g:cntr_buffer_name = "*** CNTR RESULTS ***"
 endif
@@ -75,7 +78,7 @@ function! s:line_dependencies(line)
   let words = split(a:line, ' ')
   let deps = []
   for word in words
-    if match(word, '%[^[:space:]]*') != -1
+    if match(word, '^%[^[:space:]]*') != -1
       call add(deps, word[1 : ])
     endif
   endfor
@@ -176,7 +179,7 @@ function! s:initialize_buffer()
 endfunction
 
 function! s:replace_dependencies(cmd)
-  return substitute(a:cmd, "\\(^\\|[[:space:]]\\|'\\|\"\\)\\zs%\\ze[^[:space:]]", b:cntr_directory, 'g')
+  return substitute(a:cmd, "\\(^\\|[[:space:]]\\)\\zs%\\ze[^[:space:]]", b:cntr_directory, 'g')
 endfunction
 
 function! s:run_pipe(cmds)
