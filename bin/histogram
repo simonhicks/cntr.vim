@@ -54,8 +54,10 @@ SCRIPT_FILE=`mktemp`
 
 columns $LABEL_COLUMN,$VALUE_COLUMN | tr ' ' _ | table > $DATA_FILE
 
-NUM_LINES="$(wc -l $DATA_FILE | awk '{print $1}')"
-if [ $NUM_LINES -gt 10 ]
+NUM_LINES="$(cat $DATA_FILE | count-by )"
+LONGEST_LABEL="$(cat $DATA_FILE | untable | derive -c len -e "length($LABEL_COLUMN)" | aggregate -c len -a max )"
+BAR_WIDTH="$(echo "((${WIDTH}-25)/(${NUM_LINES}-1))" | bc)"
+if [ $LONGEST_LABEL -gt $BAR_WIDTH ]
 then
   XTICS="set noxtics"
 else

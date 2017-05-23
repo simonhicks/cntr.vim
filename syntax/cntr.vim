@@ -1,7 +1,7 @@
 
 syntax match cntr_comment /^#.*/
 syntax match cntr_definition /^[a-zA-Z_][a-zA-Z_]*\ze=[^[:space:]][^[:space:]]*/
-syntax match cntr_definition /^=[^[:space:]][^[:space:]]*/
+syntax match cntr_definition /^=[^[:space:]]*/
 syntax match cntr_variable /%[^[:space:]][^[:space:]]*/
 syntax match cntr_variable /$[a-zA-Z_][a-zA-Z_]*/
 syntax match cntr_singlequote_string /'[^']*'/

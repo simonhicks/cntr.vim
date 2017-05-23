@@ -1,8 +1,7 @@
-
-if exists("g:did_cntr_autoload")
-  finish
-endif
-let g:did_cntr_autoload = 1
+" if exists("g:did_cntr_autoload")
+"   finish
+" endif
+" let g:did_cntr_autoload = 1
 
 if !exists("*sha256")
   echoerr "WARNING: +cryptv feature not found. cntr.vim will not work without this feature"
@@ -20,6 +19,7 @@ function! s:trim(str)
 endfunction
 
 " block type enum values
+let s:anonymous = 'anonymous'
 let s:definition = 'definition'
 let s:initializer = 'initializer'
 
@@ -28,7 +28,11 @@ let s:initializer = 'initializer'
 " @return        an enum string representing the type of the block
 function! s:block_type(block)
   if a:block[0][0] == '='
-    return s:definition
+    if a:block[0] == '='
+      return s:anonymous
+    else
+      return s:definition
+    end
   else
     return s:initializer
   endif
@@ -106,14 +110,40 @@ function! s:handle_definition(block)
   let b:cntr_definitions[l:file] = {'file': l:file, 'lines': l:lines, 'dependencies': l:deps}
 endfunction
 
+let s:anonymous_prefix = "ANONYMOUS-L"
+" calculate the name to use for an anonymous block
+" @arg  lnum  the line number of the first line in the block
+" @return     the name
+function! s:anonymous_name(lnum)
+  return s:anonymous_prefix . a:lnum
+endfunction
+
+function! s:is_anonymous(name)
+  return match(a:name, s:anonymous_prefix . '\d\d*') != -1
+endfunction
+
+" store the enriched definition object for an anonymous block in the buffer
+" definitions map
+" @arg  block  a list of lines representing a definition block
+" @arg  lnum   the line number the block came from
+" @return      a map representing a definition block
+function! s:handle_anonymous(block, lnum)
+  let l:file = s:anonymous_name(a:lnum)
+  let l:lines = a:block[1 : ]
+  let l:deps = s:dependencies(a:block)
+  let b:cntr_definitions[l:file] = {'file': l:file, 'lines': l:lines, 'dependencies': l:deps}
+endfunction
+
 " handle a single block from a cntr file... either by running it (for
 " initializers) or by storing it in the definitions map.
 " @arg  block  a list of lines representing a definition block
-function! s:handle_block(block)
+function! s:handle_block(block, lnum)
   let l:type = s:block_type(a:block)
-  if l:type == 'definition'
+  if l:type == s:definition
     call s:handle_definition(a:block)
-  elseif l:type == 'initializer'
+  elseif l:type == s:anonymous
+    call s:handle_anonymous(a:block, a:lnum)
+  elseif l:type == s:initializer
     call s:handle_initializer(a:block)
   endif
 endfunction
@@ -140,25 +170,38 @@ function! s:calculate_definition_hashes()
   endfor
 endfunction
 
+function! s:clean_cache()
+  let cache_files = split(system('find ' . b:cntr_directory . ' -type f'), "\n")
+  for cache_file in cache_files
+    let name = substitute(cache_file, b:cntr_directory, '', '')
+    if !has_key(b:cntr_definitions, name) || s:is_anonymous(name)
+      call delete(cache_file)
+    endif
+  endfor
+endfunction
+
 " parse the entire file, storing definitions, building up the dependency tree
 " and running all the initializer blocks.
 function! s:parse()
   call s:initialize_buffer()
-  let b:cntr_definitions = {}
   let lnum = 1
   let current_block = []
+  let start_of_block = 0
   while lnum <= line("$")
     let l = getline(lnum)
+    if s:is_definition(lnum)
+      let start_of_block = lnum
+    endif
     if strlen(s:trim(l)) > 0
       call add(current_block, l)
     elseif len(current_block) > 0
-      call s:handle_block(current_block)
+      call s:handle_block(current_block, start_of_block)
       let current_block = []
     endif
     let lnum = lnum + 1
   endwhile
   if len(current_block) > 0
-    call s:handle_block(current_block)
+    call s:handle_block(current_block, start_of_block)
   endif
   call s:calculate_definition_hashes()
 endfunction
@@ -175,6 +218,7 @@ function! s:initialize_buffer()
   if !exists("b:cntr_done_init_buffer")
     call s:do_initialize_buffer()
   endif
+  let b:cntr_definitions = {}
 endfunction
 
 function! s:replace_dependencies(cmd)
@@ -289,7 +333,9 @@ function! s:cursor_location()
     let lnum = lnum - 1
     let n = n + 1
   endwhile
-  return {'name': getline(lnum)[1 : ], 'cmd_num': n}
+  let line = getline(lnum)
+  let name = (line == '=' ? s:anonymous_name(lnum) : line[1 : ])
+  return {'name': name, 'cmd_num': n}
 endfunction
 
 function! s:validate_is_definition(location)
@@ -307,6 +353,7 @@ function! cntr#auto_run()
   else
     call s:raw_run(name)
   endif
+  call s:clean_cache()
 endfunction
 
 function! cntr#raw_preview()
@@ -316,6 +363,7 @@ function! cntr#raw_preview()
   let name = location.name
   let cmd_num = location.cmd_num
   echo s:preview_definition(name, 11, cmd_num)
+  call s:clean_cache()
 endfunction
 
 function! cntr#table_preview()
@@ -325,6 +373,7 @@ function! cntr#table_preview()
   let name = location.name
   let cmd_num = location.cmd_num
   echo system("table", s:preview_definition(name, 11, cmd_num))
+  call s:clean_cache()
 endfunction
 
 function! cntr#back()
@@ -342,5 +391,6 @@ function! cntr#forward()
 endfunction
 
 function! cntr#export(output)
+  call s:clean_cache()
   echo system("cd ". b:cntr_directory . " && zip -r " . fnamemodify(a:output, ":p") . ".zip .")
 endfunction
