@@ -9,6 +9,7 @@ show_help() {
   echo "  t date-fmt     : the date format string for the x axis, using gnuplot syntax (defaults to"
   echo "                   treating the x axis as a numeric)"
   echo "  d dimensions   : the dimensions of the output as WxH (default 79x24)"
+  echo "  o output-path  : output a jpeg to a file instead of printing the ascii chart"
   echo "  h              : print this help text"
   echo ""
 }
@@ -17,12 +18,14 @@ SEPARATOR=${CSV_UTILS_SEPARATOR:-,}
 TIME_FORMAT=""
 DIMENSIONS='79x24'
 
-while getopts "hs:x:y:t:d:" opt
+while getopts "hs:x:y:t:d:o:" opt
 do
   case "$opt" in
     h)
       show_help
       exit 0
+      ;;
+    o) OUTPUT_FILE="$OPTARG"
       ;;
     s) SEPARATOR="$OPTARG"
       ;;
@@ -59,15 +62,29 @@ NUM_COLUMNS="$(echo "$X_COLUMNS,$Y_COLUMNS" | awk -F , '{print NF}')"
 DATA_FILE=`mktemp`
 SCRIPT_FILE=`mktemp`
 
+if [ "$OUTPUT_FILE" == "" ]
+then
+  GNUPLOT_TERMINAL="set terminal dumb $WIDTH $HEIGHT"
+  OUTPUT_COMMAND=""
+  PRINT_COMMAND=""
+else
+  GNUPLOT_TERMINAL="set terminal jpeg size $WIDTH,$HEIGHT"
+  OUTPUT_COMMAND="set output '$OUTPUT_FILE'"
+  PRINT_COMMAND="print('Saving linechart to $OUTPUT_FILE')"
+fi
+
 columns $X_COLUMN,$Y_COLUMNS | sort-by -c $X_COLUMN -d asc | tr ' ' _ | table > $DATA_FILE
 
 cat > $SCRIPT_FILE <<EOF
-set terminal dumb 200 25
+$GNUPLOT_TERMINAL
+$OUTPUT_COMMAND
+
 $([ "$TIME_FORMAT" != "" ] && echo "set xdata time")
 $([ "$TIME_FORMAT" != "" ] && echo "set timefmt '$TIME_FORMAT'")
 set style data lines
 set key below
 plot for [i=2:$NUM_COLUMNS] '$DATA_FILE' using 1:i title columnheader(i)
+$PRINT_COMMAND
 EOF
 
 gnuplot $SCRIPT_FILE
