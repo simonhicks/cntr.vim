@@ -57,7 +57,6 @@ case "`uname`" in
 esac
 
 read HEADERS
-
 OLD_IFS=$IFS
 IFS=$SEPARATOR
 i=1
@@ -69,8 +68,17 @@ do
   i=$((i+1))
 done
 IFS=$OLD_IFS
-
 EXPRESSION=`bash -c "echo \"${EXPRESSION}\" | $SED_COMMAND"`
 
+AWK_INCLUDE_ARGS=""
+for AWK_INCLUDE_FILE in $(echo $AWK_INCLUDE_FILES | sed -e 's/:/ /g')
+do
+  AWK_INCLUDE_ARGS="$AWK_INCLUDE_ARGS-f $AWK_INCLUDE_FILE "
+done
+
+AWK_SCRIPT_FILE=`mktemp`
+echo "{ printf(\"%s%s%s\n\", \$0, FS, $EXPRESSION) }" > $AWK_SCRIPT_FILE
+
 echo ${HEADERS}${SEPARATOR}${COL_NAME}
-awk -F $SEPARATOR "{ printf(\"%s%s%s\n\", \$0, FS, $EXPRESSION) }"
+awk -F $SEPARATOR $AWK_INCLUDE_ARGS -f $AWK_SCRIPT_FILE 
+rm $AWK_SCRIPT_FILE

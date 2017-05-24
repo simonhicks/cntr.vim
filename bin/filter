@@ -41,40 +41,45 @@ then
   exit 1
 fi
 
-# get the part of $CONDITION before the operator
-CONDITION_COL=${CONDITION/[~=<>]*/}
+# figure out which version of sed we're using
+START_WORD='\b'
+END_WORD='\b'
+SED="sed"
+case "`uname`" in
+  Darwin*)
+    START_WORD='[[:<:]]'
+    END_WORD='[[:>:]]'
+    SED="/usr/bin/sed"
+    ;;
+esac
 
-# find the index of that column
 read HEADERS
-
 OLD_IFS=$IFS
 IFS=$SEPARATOR
-CONDITION_INDEX=""
 i=1
+SED_COMMAND="$SED "
 for HEADER in $HEADERS
 do
-  if [ "$HEADER" == "$CONDITION_COL" ]
-  then
-    CONDITION_INDEX=$i
-  fi
+  SED_COMMAND="$SED_COMMAND -e 's/${START_WORD}${HEADER}${END_WORD}/\$$i/g'"
+  # replace all instances of $HEADER in $CONDITION with \$$i
   i=$((i+1))
-done;
+done
 IFS=$OLD_IFS
+CONDITION=`bash -c "echo \"${CONDITION}\" | $SED_COMMAND"`
 
-if [ "$CONDITION_INDEX" == "" ]
-then
-  >&2 echo "ERROR: Invalid condition column $CONDITION"
-  >&2 show_help
-  exit 1
-fi
-
-# replace the first part of the $CONDITION with $n
-CONDITION=${CONDITION/$CONDITION_COL/\$$CONDITION_INDEX}
-
-echo $HEADERS
-
-awk -F $SEPARATOR "{
+AWK_SCRIPT_FILE=`mktemp`
+echo "{
   if ($NEGATE ($CONDITION)) {
     print \$0
   }
-}" -
+}" > $AWK_SCRIPT_FILE
+
+AWK_INCLUDE_ARGS=""
+for AWK_INCLUDE_FILE in $(echo $AWK_INCLUDE_FILES | sed -e 's/:/ /g')
+do
+  AWK_INCLUDE_ARGS="$AWK_INCLUDE_ARGS-f $AWK_INCLUDE_FILE "
+done
+
+echo $HEADERS
+awk -F $SEPARATOR  $AWK_INCLUDE_ARGS -f $AWK_SCRIPT_FILE -
+rm $AWK_SCRIPT_FILE
