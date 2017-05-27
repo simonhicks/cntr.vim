@@ -1,0 +1,69 @@
+#!/bin/bash
+
+show_help() {
+  echo ""
+  echo "USAGE: $(basename $0) [-h]  [-s sep] -f file"
+  echo ""
+  echo "  s sep    : the field separator used in the input data"
+  echo "  f file   : a file to be merged into the content from STDIN"
+  echo "  u        : by default, rows that appear more than once in the combined output"
+  echo "             will be printed each time they appear. Pass this flag in to remove"
+  echo "             such duplicates"
+  echo "  h        : print this help text"
+  echo ""
+  echo "Both files must have the same headers, and they must use the same separator."
+}
+
+SEPARATOR=${CSV_UTILS_SEPARATOR:-,}
+
+UNION_FILE=""
+REMOVE_DUPS="no"
+
+while getopts "hs:uf:" opt
+do
+  case "$opt" in
+    h)
+      show_help
+      exit 0
+      ;;
+    s) SEPARATOR="$OPTARG"
+      ;;
+    u) REMOVE_DUPS="yes"
+      ;;
+    f) UNION_FILE="$OPTARG"
+      ;;
+  esac
+done
+shift $((OPTIND-1))
+
+if [ "$UNION_FILE" == "" ]
+then
+  >&2 echo "ERROR: Missing mandatory argument -f"
+  >&2 show_help
+  exit 1
+fi
+
+STDIN_HEADERS=`head -n 1`
+FILE_HEADERS=`head -n 1 $UNION_FILE`
+if [ "$STDIN_HEADERS" != "$FILE_HEADERS" ]
+then
+  >&2 echo "ERROR: Both data sources must have the same headers"
+  >&2 show_help
+  exit 1
+fi
+
+if [ "$REMOVE_DUPS" == "no" ]
+then
+  cat $UNION_FILE
+  cat -
+else
+  awk -F $SEPARATOR '
+!($0 in seen) {
+  seen[$0]
+  print($0)
+}
+
+' $UNION_FILE -
+fi
+
+
