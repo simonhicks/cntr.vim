@@ -1,0 +1,114 @@
+#!/bin/bash
+
+show_help() {
+  echo ""
+  echo "USAGE: $(basename $0) [-h] [-s sep] [-w where-expr] -u update-expr -c col"
+  echo ""
+  echo "  s sep          : the field separator used in the input data"
+  echo "  c col          : the name of the column to update"
+  echo "  w where-expr   : an expression to use to filter which rows get updated"
+  echo "  u update-expr  : the expression used to calculate the new value"
+  echo "  h              : print this help text"
+  echo ""
+}
+
+SEPARATOR=${CSV_UTILS_SEPARATOR:-,}
+WHERE_EXPR="(1==1)"
+
+while getopts "hw:u:c:s:" opt
+do
+  case "$opt" in
+    h)
+      show_help
+      exit 0
+      ;;
+    s) SEPARATOR="$OPTARG"
+      ;;
+    c) COL_NAME="$OPTARG"
+      ;;
+    w) WHERE_EXPR="$OPTARG"
+      ;;
+    u) UPDATE_EXPR="$OPTARG"
+  esac
+done
+shift $((OPTIND-1))
+
+if [ "$COL_NAME" == "" ]
+then
+  >&2 echo "ERROR: Missing mandatory argument -c"
+  >&2 show_help
+  exit 1
+fi
+
+if [ "$UPDATE_EXPR" == "" ]
+then
+  >&2 echo "ERROR: Missing mandatory argument -u"
+  >&2 show_help
+  exit 1
+fi
+
+# figure out which version of sed we're using
+START_WORD='\b'
+END_WORD='\b'
+SED="sed"
+case "`uname`" in
+  Darwin*)
+    START_WORD='[[:<:]]'
+    END_WORD='[[:>:]]'
+    SED="/usr/bin/sed"
+    ;;
+esac
+
+read HEADERS
+OLD_IFS=$IFS
+IFS=$SEPARATOR
+i=1
+SED_COMMAND="$SED "
+for HEADER in $HEADERS
+do
+  SED_COMMAND="$SED_COMMAND -e 's/${START_WORD}${HEADER}${END_WORD}/\$$i/g'"
+  # replace all instances of $HEADER in $EXPRESSION with \$$i
+  i=$((i+1))
+done
+IFS=$OLD_IFS
+WHERE_EXPR=`bash -c "echo \"${WHERE_EXPR}\" | $SED_COMMAND"`
+UPDATE_EXPR=`bash -c "echo \"${UPDATE_EXPR}\" | $SED_COMMAND"`
+
+AWK_INCLUDE_ARGS=""
+for AWK_INCLUDE_FILE in $(echo $AWK_INCLUDE_FILES | sed -e 's/:/ /g')
+do
+  AWK_INCLUDE_ARGS="$AWK_INCLUDE_ARGS-f $AWK_INCLUDE_FILE "
+done
+
+AWK_SCRIPT_FILE=`mktemp`
+echo "
+BEGIN {
+  numberOfColumns = split(cols, columns, FS)
+  for (i=1; i<=numberOfColumns; i++) {
+    if (columns[i] == updateCol) {
+      updateColIndex = i
+    }
+  }
+}
+
+!($WHERE_EXPR) {
+  print \$0
+}
+
+$WHERE_EXPR {
+  sep = \"\"
+  for (f=1; f<=numberOfColumns; f++) {
+    if (updateColIndex == f) {
+      printf(\"%s%s\", sep, $UPDATE_EXPR)
+    } else {
+      printf(\"%s%s\", sep, \$f)
+    }
+    sep=FS
+  }
+  print \"\"
+}
+" > $AWK_SCRIPT_FILE
+
+echo ${HEADERS}
+awk -F $SEPARATOR $AWK_INCLUDE_ARGS -v cols="$HEADERS" -v updateCol="$COL_NAME" -f $AWK_SCRIPT_FILE 
+rm $AWK_SCRIPT_FILE
