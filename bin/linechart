@@ -73,7 +73,7 @@ else
   PRINT_COMMAND="print('Saving linechart to $OUTPUT_FILE')"
 fi
 
-columns ${X_COLUMN}${CSV_UTILS_SEPARATOR}${Y_COLUMNS} | sort-by -c $X_COLUMN -d asc | tr ' ' _ | table > $DATA_FILE
+columns ${X_COLUMN}${SEPARATOR}${Y_COLUMNS} | sort-by -c $X_COLUMN -d asc | tr ' ' _ | table > $DATA_FILE
 
 cat > $SCRIPT_FILE <<EOF
 $GNUPLOT_TERMINAL

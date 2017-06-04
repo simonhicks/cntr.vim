@@ -55,7 +55,7 @@ HEIGHT=${DIMENSIONS##*x}
 DATA_FILE=`mktemp`
 SCRIPT_FILE=`mktemp`
 
-columns ${LABEL_COLUMN}${CSV_UTILS_SEPARATOR}${VALUE_COLUMN} | tr ' ' _ | table > $DATA_FILE
+columns ${LABEL_COLUMN}${SEPARATOR}${VALUE_COLUMN} | tr ' ' _ | table > $DATA_FILE
 
 
 if [ "$OUTPUT_FILE" == "" ]
