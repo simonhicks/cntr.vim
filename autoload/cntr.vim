@@ -1,7 +1,7 @@
-" if exists("g:did_cntr_autoload")
-"   finish
-" endif
-" let g:did_cntr_autoload = 1
+if exists("g:did_cntr_autoload")
+  finish
+endif
+let g:did_cntr_autoload = 1
 
 if !exists("*sha256")
   echoerr "WARNING: +cryptv feature not found. cntr.vim will not work without this feature"
@@ -156,17 +156,10 @@ function! s:calculate_definition_hash(definition)
   return sha256(join(a:definition.lines, "\n") . dependency_hashes)
 endfunction
 
-function! s:get_definition_hash(def_name)
-  let def = b:cntr_definitions[a:def_name]
-  if !has_key(b:cntr_definitions, 'hash')
-    let def['hash'] = s:calculate_definition_hash(def)
-  endif
-  return def['hash']
-endfunction
-
 function! s:calculate_definition_hashes()
   for def_name in keys(b:cntr_definitions)
-    call s:get_definition_hash(def_name)
+    let def = b:cntr_definitions[def_name]
+    let def['hash'] = s:calculate_definition_hash(def)
   endfor
 endfunction
 
@@ -252,10 +245,11 @@ endfunction
 function! s:run_dependencies(definition)
   for dependency in a:definition.dependencies
     let dependency_definition = b:cntr_definitions[dependency]
-    if s:is_cached(dependency_definition)
-      return
+    echom "Checking cache for dependency " . dependency
+    if !s:is_cached(dependency_definition)
+      echom "Cache is invalid"
+      call s:run_definition(dependency)
     end
-    call s:run_definition(dependency)
   endfor
 endfunction
 
