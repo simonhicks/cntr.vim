@@ -245,9 +245,7 @@ endfunction
 function! s:run_dependencies(definition)
   for dependency in a:definition.dependencies
     let dependency_definition = b:cntr_definitions[dependency]
-    echom "Checking cache for dependency " . dependency
     if !s:is_cached(dependency_definition)
-      echom "Cache is invalid"
       call s:run_definition(dependency)
     end
   endfor
