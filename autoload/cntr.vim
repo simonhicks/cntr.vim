@@ -3,6 +3,9 @@ if exists("g:did_cntr_autoload")
 endif
 let g:did_cntr_autoload = 1
 
+" TODO update vimdoc arg comments to reflect the fact that we're now passing
+" block objects around instead of lists of lines
+
 if !exists("*sha256")
   echoerr "WARNING: +cryptv feature not found. cntr.vim will not work without this feature"
 endif
@@ -24,11 +27,12 @@ let s:definition = 'definition'
 let s:initializer = 'initializer'
 
 " returns the type of the block (s:definition or s:initializer)
-" @param  block  a list of strings, representing one block from a .cntr file
+" @param  block  a block object containing 'lines' (a list of lines) and
+"                'start' (the number of the first line of the block)
 " @return        an enum string representing the type of the block
 function! s:block_type(block)
-  if a:block[0][0] == '='
-    if a:block[0] == '='
+  if a:block.lines[0][0] == '='
+    if a:block.lines[0] == '='
       return s:anonymous
     else
       return s:definition
@@ -39,8 +43,8 @@ function! s:block_type(block)
 endfunction
 
 " returns true if the given line is a variable declaration
-" @arg  line  the to be checked
-" @return     true or false
+" @param  line  the to be checked
+" @return       true or false
 function! s:is_variable(line)
   return match(a:line, "[A-Za-z0-9_][A-Za-z0-9_]*=.*") != -1
 endfunction
@@ -63,9 +67,9 @@ function! s:define_variable(line)
 endfunction
 
 " Run an initializer block line by line.
-" @arg  block  the initializer block to run
+" @param  block  the initializer block to run
 function! s:handle_initializer(block)
-  for line in a:block
+  for line in a:block.lines
     if s:is_variable(line)
       call s:define_variable(line)
     else
@@ -75,8 +79,8 @@ function! s:handle_initializer(block)
 endfunction
 
 " Extract all the dependencies from a line.
-" @arg  line  the line to extract dependencies from
-" @return     a list of all the definition this line depends on
+" @param  line  the line to extract dependencies from
+" @return       a list of all the definition this line depends on
 function! s:line_dependencies(line)
   let words = split(a:line, ' ')
   let deps = []
@@ -89,8 +93,9 @@ function! s:line_dependencies(line)
 endfunction
 
 " Extract all the dependencies from a definition block.
-" @arg  block  a list of lines representing a definition block
-" @return      a list of all the blocks this definition depends on
+" @param  block  a block object containing 'lines' (a list of lines) and
+"                'start' (the number of the first line of the block)
+" @return        a list of all the blocks this definition depends on
 function! s:dependencies(block)
   let deps = []
   for line in a:block[1 : ]
@@ -101,19 +106,20 @@ endfunction
 
 " store the enriched definition object for a block in the buffer definitions
 " map
-" @arg  block  a list of lines representing a definition block
-" @return      a map representing a definition block
+" @param  block  a block object containing 'lines' (a list of lines) and
+"                'start' (the number of the first line of the block)
+" @return        a map representing a definition block
 function! s:handle_definition(block)
-  let l:file = substitute(a:block[0], '^[[:space:]]*=', '', '')
-  let l:lines = a:block[1 : ]
-  let l:deps = s:dependencies(a:block)
+  let l:file = substitute(a:block.lines[0], '^[[:space:]]*=', '', '')
+  let l:lines = a:block.lines[1 : ]
+  let l:deps = s:dependencies(a:block.lines)
   let b:cntr_definitions[l:file] = {'file': l:file, 'lines': l:lines, 'dependencies': l:deps}
 endfunction
 
 let s:anonymous_prefix = "ANONYMOUS-L"
 " calculate the name to use for an anonymous block
-" @arg  lnum  the line number of the first line in the block
-" @return     the name
+" @param  lnum  the line number of the first line in the block
+" @return       the name
 function! s:anonymous_name(lnum)
   return s:anonymous_prefix . a:lnum
 endfunction
@@ -124,25 +130,26 @@ endfunction
 
 " store the enriched definition object for an anonymous block in the buffer
 " definitions map
-" @arg  block  a list of lines representing a definition block
-" @arg  lnum   the line number the block came from
-" @return      a map representing a definition block
-function! s:handle_anonymous(block, lnum)
-  let l:file = s:anonymous_name(a:lnum)
-  let l:lines = a:block[1 : ]
-  let l:deps = s:dependencies(a:block)
+" @param  block  a block object containing 'lines' (a list of lines) and
+"                'start' (the number of the first line of the block)
+" @return        a map representing a definition block
+function! s:handle_anonymous(block)
+  let l:file = s:anonymous_name(a:block.start)
+  let l:lines = a:block.lines[1 : ]
+  let l:deps = s:dependencies(a:block.lines)
   let b:cntr_definitions[l:file] = {'file': l:file, 'lines': l:lines, 'dependencies': l:deps}
 endfunction
 
 " handle a single block from a cntr file... either by running it (for
 " initializers) or by storing it in the definitions map.
-" @arg  block  a list of lines representing a definition block
-function! s:handle_block(block, lnum)
+" @param  block  a block object containing 'lines' (a list of lines) and
+"                'start' (the number of the first line of the block)
+function! s:handle_block(block)
   let l:type = s:block_type(a:block)
   if l:type == s:definition
     call s:handle_definition(a:block)
   elseif l:type == s:anonymous
-    call s:handle_anonymous(a:block, a:lnum)
+    call s:handle_anonymous(a:block)
   elseif l:type == s:initializer
     call s:handle_initializer(a:block)
   endif
@@ -173,29 +180,39 @@ function! s:clean_cache()
   endfor
 endfunction
 
+function! s:finalize_block(block)
+  if len(a:block.lines) > 0
+    call s:handle_block(a:block)
+    let a:block.lines = []
+  endif
+endfunction
+
+function! s:add_line_to_block(lnum, block)
+  let l = getline(a:lnum)
+  if s:is_definition(a:lnum)
+    let a:block.start = a:lnum
+  endif
+  let trimmed_line = s:trim(l)
+  if trimmed_line[0] != '#'
+    if strlen(trimmed_line) == 0
+      call s:finalize_block(a:block)
+    else
+      call add(a:block.lines, l)
+    endif
+  endif
+endfunction
+
 " parse the entire file, storing definitions, building up the dependency tree
 " and running all the initializer blocks.
 function! s:parse()
   call s:initialize_buffer()
   let lnum = 1
-  let current_block = []
-  let start_of_block = 0
+  let block = {'lines': [], 'start': 0}
   while lnum <= line("$")
-    let l = getline(lnum)
-    if s:is_definition(lnum)
-      let start_of_block = lnum
-    endif
-    if strlen(s:trim(l)) > 0
-      call add(current_block, l)
-    elseif len(current_block) > 0
-      call s:handle_block(current_block, start_of_block)
-      let current_block = []
-    endif
+    call s:add_line_to_block(lnum, block)
     let lnum = lnum + 1
   endwhile
-  if len(current_block) > 0
-    call s:handle_block(current_block, start_of_block)
-  endif
+  call s:finalize_block(block)
   call s:calculate_definition_hashes()
 endfunction
 
@@ -273,9 +290,9 @@ function! s:run_definition(name)
 endfunction
 
 " Preview the results of a definition.
-" @arg  name           the name of the definition to execute
-" @arg  limit          the number of rows to display
-" @arg  execute_until  stop execution after this number of cmds
+" @param  name           the name of the definition to execute
+" @param  limit          the number of rows to display
+" @param  execute_until  stop execution after this number of cmds
 " @return              the output of the definition as a string
 function! s:preview_definition(name, limit, execute_until)
   let definition = b:cntr_definitions[a:name]

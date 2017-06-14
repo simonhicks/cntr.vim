@@ -9,18 +9,19 @@
 - A set of bash scripts for producing, manipulating and visualising streams of csv data. They are
   designed to be used in long unix pipe chains, with each command reading data from `STDIN`, applying a
 transformation and then writing the results back to `STDOUT`. These scripts can be used as building blocks
-for relatively complex transformations
+for relatively complex transformations.
 
-- A filetype and associated vim plugin, that makes it easier to build these piped command chains in
-  an iterative and exploratory manner. The plugin aims to provide an environment for rapid
-iteration, quick exploration and lightweight, ad-hoc analysis rather than a way of building well
-engineered and repeatable data pipelines.
+- A filetype and associated vim plugin designed to  make it easier to build, edit, debug and reuse
+  these piped command chains to explore small-scale data a highly iterative manner. The plugin is
+therefore optimised for rapid iteration, quick exploration and lightweight, ad-hoc analysis rather
+than for building well engineered and repeatable data pipelines.
 
 ## TODO The commands
 
-... this can be mostly taken from ~/csv-utils/README.md
+- copy (and update) from csv-utils
+- add info about `AWK_INCLUDE_FILES`
 
-## INPROGRESS The `.cntr` filetype plugin
+## INPROGRESS Using the `.cntr` filetype plugin
 
 Here's an example `.cntr` snippet
 
@@ -51,9 +52,30 @@ histogram -l user -c count -d 140x30
 
 The snippet is divided into 4 blocks, with each block representing a pipe chain of commands.
 
+- basic concepts tutorial using some dummy csv data
+- slightly more advanced tutorial using data from ps and lsof
+- include:
+  - initializer blocks
+  - named blocks
+  - usage strings
+  - linewise preview/full view
+    - table vs. non-table
+  - comments
+  - starting from a command other than cat
+  - charts
+  - caching
+  - anonymous pipes
+  - csv export
+
 ## More docs are forthcoming
 
-If you want to use this without docs, be my guest... but it's probably pretty cryptic! Good luck!
+## Installation
+
+`cntr.vim` is a regular vim plugin and can be installed using
+[Vundle.vim](https://github.com/VundleVim/Vundle.vim),
+[vim-pathogen](https://github.com/tpope/vim-pathogen), or any other Vim plugin installation process.
+
+It also has some other dependencies, which should be installed before use.
 
 ## Dependencies
 
@@ -61,7 +83,7 @@ If you want to use this without docs, be my guest... but it's probably pretty cr
 
 - **`show#show()`:** a utility function for displaying output, provided by the
   [show.vim](https://github.com/simonhicks/show.vim) plugin. You should install it if you want to
-use cntr.vim ...
+use cntr.vim.
   
 - **`gnuplot`:** a command line charting tool. `cntr.vim` was developed against version 4.6, but it
   doesn't use any fancy features, so it should work with earlier versions too.
@@ -71,10 +93,9 @@ use cntr.vim ...
 get it.
 
 - **`awk`:** a command line stream processing langauge. `cntr.vim` was developed against mawk 1.3.3.
-  I have no idea if it'll work with older versions.
 
 - **`sed`:** another command line stream processing tool. `cntr.vim` was developed against version
-  4.2.2. I have no idea if it'll work with older versions.
+  gnu sed 4.2.2.
 
 Many of the \*nix commands used in `cntr.vim` differ in subtle ways between Mac and Linux...
 Although it has been tested on a mac a little, `cntr.vim` was primarily developed on Linux and it's
