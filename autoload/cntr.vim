@@ -155,18 +155,55 @@ function! s:handle_block(block)
   endif
 endfunction
 
-function! s:calculate_definition_hash(definition)
-  let dependency_hashes = ''
-  for dependency in a:definition.dependencies
-    let dependency_hashes = dependency_hashes . s:calculate_definition_hash(b:cntr_definitions[dependency])
+function! s:has_env_var(line)
+  return match(a:line, "$[a-zA-Z_][0-9a-zA-Z_]*") != -1
+endfunction
+
+function! s:extract_env_vars(line)
+  let vars = []
+  let l:line = a:line
+  while s:has_env_var(l:line)
+    call add(vars, matchlist(l:line,  '$\([a-zA-Z_][0-9a-zA-Z_]*\)')[1])
+    let l:line = substitute(l:line, '[^$]*\$', "", "")
+  endwhile
+  return vars
+endfunction
+
+function! s:var_dependencies(definition)
+  let vars = []
+  for line in a:definition.lines
+    if s:has_env_var(line)
+      for var in s:extract_env_vars(line)
+        call add(vars, var)
+      endfor
+    endif
   endfor
-  return sha256(join(a:definition.lines, "\n") . dependency_hashes)
+  return vars
+endfunction
+
+function! s:var_hash(var)
+  return sha256(expand("$" . a:var))
+endfunction
+
+function! s:ensure_definition_has_hash(definition)
+  if !has_key(a:definition, 'hash')
+    let dependency_hashes = ''
+    for dependency in a:definition.dependencies
+      let dep_obj = b:cntr_definitions[dependency]
+      call s:ensure_definition_has_hash(dep_obj)
+      let dependency_hashes = dependency_hashes . dep_obj['hash']
+    endfor
+    for var in s:var_dependencies(a:definition)
+      let dependency_hashes = dependency_hashes . s:var_hash(var)
+    endfor
+    let a:definition['hash'] = sha256(join(a:definition.lines, "\n") . dependency_hashes)
+  endif
 endfunction
 
 function! s:calculate_definition_hashes()
   for def_name in keys(b:cntr_definitions)
     let def = b:cntr_definitions[def_name]
-    let def['hash'] = s:calculate_definition_hash(def)
+    call s:ensure_definition_has_hash(def)
   endfor
 endfunction
 
@@ -202,10 +239,25 @@ function! s:add_line_to_block(lnum, block)
   endif
 endfunction
 
+function! s:do_initialize_buffer()
+  let b:cntr_directory = tempname() . "/" . substitute(expand("%:p")[1 : ], "/", ".", "g") . '/'
+  call mkdir(b:cntr_directory, "p")
+  let $PATH=g:cntr_bin.":".$PATH
+  let b:cntr_cache = {}
+endfunction
+
+function! cntr#initialize_buffer()
+  if !exists("b:cntr_done_init_buffer")
+    call s:do_initialize_buffer()
+    let b:cntr_done_init_buffer = 1
+  endif
+  let b:cntr_definitions = {}
+endfunction
+
 " parse the entire file, storing definitions, building up the dependency tree
 " and running all the initializer blocks.
 function! s:parse()
-  call s:initialize_buffer()
+  call cntr#initialize_buffer()
   let lnum = 1
   let block = {'lines': [], 'start': 0}
   while lnum <= line("$")
@@ -214,21 +266,6 @@ function! s:parse()
   endwhile
   call s:finalize_block(block)
   call s:calculate_definition_hashes()
-endfunction
-
-function! s:do_initialize_buffer()
-  let b:cntr_directory = tempname() . "/" . substitute(expand("%:p")[1 : ], "/", ".", "g") . '/'
-  call mkdir(b:cntr_directory, "p")
-  let $PATH=g:cntr_bin.":".$PATH
-  let b:cntr_cache = {}
-  let b:cntr_done_init_buffer = 1
-endfunction
-
-function! s:initialize_buffer()
-  if !exists("b:cntr_done_init_buffer")
-    call s:do_initialize_buffer()
-  endif
-  let b:cntr_definitions = {}
 endfunction
 
 function! s:replace_dependencies(cmd)

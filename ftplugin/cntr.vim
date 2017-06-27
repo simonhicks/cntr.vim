@@ -13,3 +13,5 @@ setlocal commentstring=#\ %s
 " Break folds on blank lines
 setlocal foldmethod=expr
 setlocal foldexpr=getline(v:lnum)=~'^\\s*$'?0:1
+
+call cntr#initialize_buffer()
