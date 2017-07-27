@@ -1,0 +1,16 @@
+#!/bin/bash
+
+if [ "$1" == "-h" ]
+then
+  # TODO usage string
+  echo ""
+  echo "USAGE: $(basename $0) [-h] <directory> <command>"
+  echo ""
+  echo "  Executes <command> as if it had been run from within <directory>"
+  echo ""
+  exit 1
+fi
+
+cd $1
+shift
+$@

@@ -1,2 +1,2 @@
-[ ] import custom awk libs in filter, derive and aggregate
 [ ] export definition to bash script
+[ ] expose STDERR output for debugging purposes
