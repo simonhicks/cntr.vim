@@ -242,7 +242,6 @@ endfunction
 function! s:do_initialize_buffer()
   let b:cntr_directory = tempname() . "/" . substitute(expand("%:p")[1 : ], "/", ".", "g") . '/'
   call mkdir(b:cntr_directory, "p")
-  let $PATH=g:cntr_bin.":".$PATH
   let b:cntr_cache = {}
 endfunction
 
@@ -273,17 +272,23 @@ function! s:replace_dependencies(cmd)
 endfunction
 
 function! s:run_pipe(cmds)
+  let l:old_path = $PATH
   let output = ""
-  for cmd in a:cmds
-    let cmd = s:trim(s:replace_dependencies(cmd))
-    if cmd[0] == "#"
-      " noop
-    elseif output == ""
-      let output = system(cmd)
-    else
-      let output = system(cmd, output)
-    endif
-  endfor
+  try
+    let $PATH = g:cntr_bin . ":" . $PATH
+    for cmd in a:cmds
+      let cmd = s:trim(s:replace_dependencies(cmd))
+      if cmd[0] == "#"
+        " noop
+      elseif output == ""
+        let output = system(cmd)
+      else
+        let output = system(cmd, output)
+      endif
+    endfor
+  finally
+    let $PATH = l:old_path
+  endtry
   return output
 endfunction
 
