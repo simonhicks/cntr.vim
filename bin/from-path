@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/zsh
 
-if [ "$1" == "-h" ]
+if [[ "$1" == "-h" ]]
 then
   # TODO usage string
   echo ""

@@ -468,3 +468,7 @@ function! cntr#export(output)
   call s:clean_cache()
   echo s:system("cd ". b:cntr_directory . " && zip -r " . fnamemodify(a:output, ":p") . ".zip .")
 endfunction
+
+function! cntr#help(thing)
+  return s:system(a:thing . " -h")
+endfunction

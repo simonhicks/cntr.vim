@@ -92,6 +92,9 @@ use cntr.vim.
   almost certainly have this, but if you don't you'll probably have to recompile vim from source to
 get it.
 
+- **`zsh`**: an alternative shell (i.e. like bash, but different). N.B. You don't need to have zsh
+  installed as your default shell... it just needs to be available.
+
 - **`awk`:** a command line stream processing langauge. `cntr.vim` was developed against mawk 1.3.3.
 
 - **`sed`:** another command line stream processing tool. `cntr.vim` was developed against version
