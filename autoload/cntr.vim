@@ -66,6 +66,35 @@ function! s:define_variable(line)
   endtry
 endfunction
 
+" Run a system command with the $PATH temporarily modified to include this
+" plugin's bin directory
+"
+" @param  command   The command to run
+function! s:system(cmd)
+  let l:old_path = $PATH
+  try
+    let $PATH = g:cntr_bin . ":" . $PATH
+    return system(a:cmd)
+  finally
+    let $PATH = l:old_path
+  endtry
+endfunction
+
+" Run a system command passing in a:stdin as STDIN, with the $PATH
+" temporarility modified to include this plugin's bin directory.
+"
+" @param  command   The command to run
+" @param  stdin     The content to use as STDIN
+function! s:system_with_stdin(cmd, stdin)
+  let l:old_path = $PATH
+  try
+    let $PATH = g:cntr_bin . ":" . $PATH
+    return system(a:cmd, a:stdin)
+  finally
+    let $PATH = l:old_path
+  endtry
+endfunction
+
 " Run an initializer block line by line.
 " @param  block  the initializer block to run
 function! s:handle_initializer(block)
@@ -73,7 +102,7 @@ function! s:handle_initializer(block)
     if s:is_variable(line)
       call s:define_variable(line)
     else
-      call system(line)
+      call s:system(line)
     endif
   endfor
 endfunction
@@ -208,7 +237,7 @@ function! s:calculate_definition_hashes()
 endfunction
 
 function! s:clean_cache()
-  let cache_files = split(system('find ' . b:cntr_directory . ' -type f'), "\n")
+  let cache_files = split(s:system('find ' . b:cntr_directory . ' -type f'), "\n")
   for cache_file in cache_files
     let name = substitute(cache_file, b:cntr_directory, '', '')
     if !has_key(b:cntr_definitions, name) || s:is_anonymous(name)
@@ -272,23 +301,17 @@ function! s:replace_dependencies(cmd)
 endfunction
 
 function! s:run_pipe(cmds)
-  let l:old_path = $PATH
   let output = ""
-  try
-    let $PATH = g:cntr_bin . ":" . $PATH
-    for cmd in a:cmds
-      let cmd = s:trim(s:replace_dependencies(cmd))
-      if cmd[0] == "#"
-        " noop
-      elseif output == ""
-        let output = system(cmd)
-      else
-        let output = system(cmd, output)
-      endif
-    endfor
-  finally
-    let $PATH = l:old_path
-  endtry
+  for cmd in a:cmds
+    let cmd = s:trim(s:replace_dependencies(cmd))
+    if cmd[0] == "#"
+      " noop
+    elseif output == ""
+      let output = s:system(cmd)
+    else
+      let output = s:system_with_stdin(cmd, output)
+    endif
+  endfor
   return output
 endfunction
 
@@ -326,7 +349,7 @@ function! s:run_definition(name)
   call s:run_dependencies(definition)
   let output_file = s:file_path(definition.file)
   call s:make_output_dir(output_file)
-  call system("cat > " . output_file, s:run_pipe(definition.lines))
+  call s:system_with_stdin("cat > " . output_file, s:run_pipe(definition.lines))
   call s:add_to_cache(definition)
   return output_file
 endfunction
@@ -343,7 +366,7 @@ function! s:preview_definition(name, limit, execute_until)
     let lines = lines[0 : a:execute_until - 1]
   endif
   call s:run_dependencies(definition)
-  return system("head -n ".a:limit, s:run_pipe(lines))
+  return s:system_with_stdin("head -n ".a:limit, s:run_pipe(lines))
 endfunction
 
 function! s:raw_run(name)
@@ -355,7 +378,7 @@ endfunction
 function! s:table_run(name)
   call s:parse()
   call s:run_definition(a:name)
-  let result = system("cat " . s:file_path(a:name) . " | table")
+  let result = s:system("cat " . s:file_path(a:name) . " | table")
   call show#show(g:cntr_buffer_name, split(result, "\n"))
 endfunction
 
@@ -423,7 +446,7 @@ function! cntr#table_preview()
   call s:parse()
   let name = location.name
   let cmd_num = location.cmd_num
-  echo system("table", s:preview_definition(name, 11, cmd_num))
+  echo s:system_with_stdin("table", s:preview_definition(name, 11, cmd_num))
   call s:clean_cache()
 endfunction
 
@@ -443,5 +466,5 @@ endfunction
 
 function! cntr#export(output)
   call s:clean_cache()
-  echo system("cd ". b:cntr_directory . " && zip -r " . fnamemodify(a:output, ":p") . ".zip .")
+  echo s:system("cd ". b:cntr_directory . " && zip -r " . fnamemodify(a:output, ":p") . ".zip .")
 endfunction
