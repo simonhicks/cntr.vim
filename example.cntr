@@ -1,0 +1,43 @@
+=columns-example.csv
+cat sample-data/sales.csv
+columns date,film=film_id,amount=price
+
+=enrich-example.csv
+cat sample-data/sales.csv
+enrich -l sample-data/titles.csv -k id -d film -c title=movie_title,studio
+
+=count-by-example.csv
+cat %enrich-example.csv
+count-by -g studia
+
+=aggregate-example.csv
+cat sample-data/sales.csv
+aggregate -g location -c amount -a sum
+
+=sort-by-example.csv
+cat %aggregate-example.csv
+sort-by -s sum_of_amount -d desc
+
+=filter-example.csv
+cat sample-data/sales.csv
+enrich -l sample-data/titles.csv -k id -d film -c studio
+count-by -g studio
+filter -c 'studio~/.*Disney*./'
+
+=filter-not-example.csv
+cat sample-data/sales.csv
+enrich -l sample-data/titles.csv -k id -d film -c studio
+count-by -g studio
+filter -n -c 'studio~/.*Disney*./'
+
+=derive-example.csv
+cat sample-data/titles.csv
+derive -c id_plus_price -e 'id+price'
+
+=top-selling-films.csv
+cat sample-data/sales.csv
+aggregate -g film -c amount -a sum
+columns film,sum_of_amount=total_sales
+sort-by -c total_sales -d desc
+head -n 10
+

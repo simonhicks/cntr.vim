@@ -166,6 +166,8 @@ id | title                          | date     | studio                         
 
 ### Examples
 
+These examples are also available in `./example.cntr`
+
 #### `table`
 
 This is the most simple of all of the scripts. It lays things out in a neat table:
@@ -303,7 +305,7 @@ Aside from calculating sums, `aggregate` can also calculate min, max or mean val
 You can use `sort-by` to numerically sort this data to see which location is the most profitable.
 
 ```
-$ cat test/sales.csv | sum -g location -s amount | sort-by -s sum_of_amount -d desc | table
+$ cat test/sales.csv | aggregate -g location -c amount -a sum | sort-by -s sum_of_amount -d desc | table
 location  sum_of_amount
 Tokyo     34840.6
 NYC       34412.9
@@ -319,7 +321,7 @@ interested in the main Disney studios. You can use `filter` to filter results to
 that include the word "Disney".
 
 ```
-$ cat test/sales.csv | enrich -l titles.csv -k id -d film -c studio | count-by -g studio | filter -c 'studio~/.*Disney*./ | table
+$ cat test/sales.csv | enrich -l titles.csv -k id -d film -c studio | count-by -g studio | filter -c 'studio~/.*Disney*./' | table
 studio                            count
 DisneyToon Studios                1362
 Walt Disney Television Animation  311
@@ -330,7 +332,7 @@ Walt Disney                       5199
 which match the criteria by passing the `-n` flag.
 
 ```
-$ cat test/sales.csv | enrich -l titles.csv -k id -d film -c studio | count-by -g studio | filter -c 'studio~/.*Disney*./ | table
+$ cat test/sales.csv | enrich -l titles.csv -k id -d film -c studio | count-by -g studio | filter -n -c 'studio~/.*Disney*./' | table
 studio                      count
                             93
 ImageMovers Digital[st 6]   208
