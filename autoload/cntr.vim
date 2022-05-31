@@ -239,7 +239,7 @@ endfunction
 function! s:clean_cache()
   let cache_files = split(s:system('find ' . b:cntr_directory . ' -type f'), "\n")
   for cache_file in cache_files
-    let name = substitute(cache_file, b:cntr_directory, '', '')
+    let name = fnamemodify(cache_file, ':t')
     if !has_key(b:cntr_definitions, name) || s:is_anonymous(name)
       call delete(cache_file)
     endif
